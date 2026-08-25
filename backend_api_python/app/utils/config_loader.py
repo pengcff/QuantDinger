@@ -75,12 +75,12 @@ def load_addon_config() -> Dict[str, Any]:
                     ref[k] = {}
                 ref = ref[k]
 
-    def env_get(name: str) -> Optional[str]:
+    def env_get(name: str, *, allow_empty: bool = False) -> Optional[str]:
         val = os.getenv(name)
         if val is None:
             return None
         val = str(val).strip()
-        return val if val != '' else None
+        return val if val != '' or allow_empty else None
 
     # Map env vars to PHP-style dotted keys.
     mappings: List[Tuple[str, str, str]] = [
@@ -100,6 +100,8 @@ def load_addon_config() -> Dict[str, Any]:
         ('OPENAI_API_KEY', 'openai.api_key', 'string'),
         ('OPENAI_BASE_URL', 'openai.base_url', 'string'),
         ('OPENAI_MODEL', 'openai.model', 'string'),
+        ('OPENAI_TIMEOUT', 'openai.timeout', 'int'),
+        ('OPENAI_FALLBACK_MODEL', 'openai.fallback_model', 'string'),
         
         # Google Gemini
         ('GOOGLE_API_KEY', 'google.api_key', 'string'),
@@ -217,7 +219,10 @@ def load_addon_config() -> Dict[str, Any]:
     ]
 
     for env_name, dotted_key, value_type in mappings:
-        raw = env_get(env_name)
+        raw = env_get(
+            env_name,
+            allow_empty=env_name == 'OPENAI_FALLBACK_MODEL',
+        )
         if raw is None:
             continue
         try:

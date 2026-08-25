@@ -17,6 +17,8 @@ from app.utils.config_loader import load_addon_config
 logger = get_logger(__name__)
 
 DEFAULT_MAX_TOKENS = 16_384
+DEFAULT_LLM_TIMEOUT = 120
+DISABLED_FALLBACK_VALUES = {"", "none", "off", "disabled"}
 
 RETRYABLE_LLM_STATUS_CODES = {408, 409, 425, 429, 500, 502, 503, 504, 529}
 RETRYABLE_LLM_ERROR_TYPES = {
@@ -275,6 +277,52 @@ class LLMService:
                 DEFAULT_MAX_TOKENS,
             )
             return DEFAULT_MAX_TOKENS
+
+    def _get_provider_timeout(self, provider: LLMProvider) -> int:
+        """Return a positive request timeout for the selected provider."""
+        configured = load_addon_config().get(provider.value, {}).get(
+            "timeout",
+            DEFAULT_LLM_TIMEOUT,
+        )
+        try:
+            timeout = int(configured)
+            if timeout <= 0:
+                raise ValueError
+            return timeout
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid %s timeout=%r; using %s seconds",
+                provider.value,
+                configured,
+                DEFAULT_LLM_TIMEOUT,
+            )
+            return DEFAULT_LLM_TIMEOUT
+
+    def _get_fallback_models(self, provider: LLMProvider) -> List[str]:
+        """Resolve explicit fallback configuration while preserving legacy defaults."""
+        provider_config = load_addon_config().get(provider.value, {})
+        if "fallback_model" in provider_config:
+            configured = str(provider_config.get("fallback_model") or "").strip()
+            if configured.lower() in DISABLED_FALLBACK_VALUES:
+                return []
+            normalized = self._normalize_model_for_provider(configured, provider)
+            return [normalized] if normalized else []
+
+        configured_default = self._normalize_model_for_provider(
+            self.get_default_model(provider),
+            provider,
+        )
+        static_fallback = self._normalize_model_for_provider(
+            PROVIDER_CONFIGS[provider].get("fallback_model") or "",
+            provider,
+        )
+        return list(
+            dict.fromkeys(
+                candidate
+                for candidate in (configured_default, static_fallback)
+                if candidate
+            )
+        )
 
     def is_configured(self, provider: LLMProvider = None) -> bool:
         """Return whether the provider has enough configuration to make a request."""
@@ -1183,21 +1231,12 @@ class LLMService:
         original_model = model
         model = self._normalize_model_for_provider(model, p)
         
-        config = load_addon_config()
-        timeout = int(config.get(p.value, {}).get('timeout', 120))
+        timeout = self._get_provider_timeout(p)
         
         # Build model candidates
         models_to_try = [model]
         if use_fallback:
-            configured_default = self._normalize_model_for_provider(
-                self.get_default_model(p),
-                p,
-            )
-            static_fallback = self._normalize_model_for_provider(
-                PROVIDER_CONFIGS[p].get("fallback_model") or "",
-                p,
-            )
-            for candidate in (configured_default, static_fallback):
+            for candidate in self._get_fallback_models(p):
                 if candidate and candidate not in models_to_try:
                     models_to_try.append(candidate)
         
@@ -1341,8 +1380,7 @@ class LLMService:
             return
 
         model = self._normalize_model_for_provider(model, p)
-        config = load_addon_config()
-        timeout = int(config.get(p.value, {}).get('timeout', 120))
+        timeout = self._get_provider_timeout(p)
         yield from self._stream_openai_compatible(
             messages,
             model,
