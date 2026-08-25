@@ -45,7 +45,8 @@ ADVANCED_KEYS = {
     'GDELT_BASE_URL', 'GDELT_TIMEOUT', 'GDELT_MAX_RESULTS',
     'ALPHA_VANTAGE_API_KEY', 'ALPHA_VANTAGE_BASE_URL', 'ALPHA_VANTAGE_TIMEOUT', 'ALPHA_VANTAGE_NEWS_LIMIT',
     'AI_CODE_GEN_MODEL', 'LLM_PROXY_URL', 'LLM_USE_SYSTEM_PROXY',
-    'OPENAI_BASE_URL', 'DEEPSEEK_BASE_URL', 'GROK_BASE_URL', 'ATLASCLOUD_BASE_URL', 'MINIMAX_BASE_URL',
+    'OPENAI_BASE_URL', 'OPENAI_TIMEOUT', 'OPENAI_FALLBACK_MODEL',
+    'DEEPSEEK_BASE_URL', 'GROK_BASE_URL', 'ATLASCLOUD_BASE_URL', 'MINIMAX_BASE_URL',
     # Trading internals
     'ORDER_MODE', 'MAKER_WAIT_SEC',
     'SPOT_CLOSE_SAFETY_RATIO', 'SPOT_OPEN_QUOTE_BUFFER',
@@ -384,6 +385,24 @@ CONFIG_SCHEMA = {
                 'type': 'text',
                 'default': 'https://api.openai.com/v1',
                 'description': 'Custom API endpoint (for proxies or Azure)',
+                'group': 'openai'
+            },
+            {
+                'key': 'OPENAI_TIMEOUT',
+                'label': 'OpenAI Request Timeout',
+                'type': 'number',
+                'default': 120,
+                'required': False,
+                'description': 'Request timeout in seconds. Invalid or non-positive values use 120 seconds',
+                'group': 'openai'
+            },
+            {
+                'key': 'OPENAI_FALLBACK_MODEL',
+                'label': 'OpenAI Fallback Model',
+                'type': 'text',
+                'default': 'gpt-4o-mini',
+                'required': False,
+                'description': 'Fallback model after the primary request fails. Leave empty or use none, off, or disabled to turn fallback off',
                 'group': 'openai'
             },
             # Google Gemini

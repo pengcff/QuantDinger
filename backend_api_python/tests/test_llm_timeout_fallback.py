@@ -167,3 +167,15 @@ def test_invalid_openai_timeout_uses_default(monkeypatch, configured):
     )
 
     assert attempted == [("primary-model", 120)]
+
+
+def test_openai_timeout_and_fallback_are_exposed_in_settings():
+    from app.routes.settings import ADVANCED_KEYS, CONFIG_SCHEMA
+
+    items = {item["key"]: item for item in CONFIG_SCHEMA["ai"]["items"]}
+
+    assert items["OPENAI_TIMEOUT"]["type"] == "number"
+    assert items["OPENAI_TIMEOUT"]["default"] == 120
+    assert items["OPENAI_FALLBACK_MODEL"]["type"] == "text"
+    assert items["OPENAI_FALLBACK_MODEL"]["default"] == "gpt-4o-mini"
+    assert {"OPENAI_TIMEOUT", "OPENAI_FALLBACK_MODEL"} <= ADVANCED_KEYS
