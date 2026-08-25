@@ -37,6 +37,7 @@ agent-tools/
 .codex-logs/
 .agents/
 .local_tools/
+.worktrees/
 outputs/
 .pytest_cache/
 *.swp
